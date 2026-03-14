@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>PyClimaExplorer</title>
+
+<link rel="stylesheet" href="/static/style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/globe.gl"></script>
+
+</head>
+
+<body>
+
+<h1>🌍 PyClimaExplorer</h1>
+
+<div id="auth">
+
+<h2>Login</h2>
+
+<input id="user" placeholder="username">
+<input id="pass" type="password">
+
+<button onclick="login()">Login</button>
+
+<h3>Register</h3>
+
+<input id="reguser">
+<input id="regpass" type="password">
+
+<button onclick="register()">Register</button>
+
+</div>
+
+
+<div id="dashboard" style="display:none">
+
+<h2>Climate Dashboard</h2>
+
+<input id="location" placeholder="Search location">
+
+<button onclick="loadClimate()">Analyze Climate</button>
+
+<button onclick="downloadReport()">Export PDF</button>
+
+<div id="globe"></div>
+
+<canvas id="chart"></canvas>
+
+</div>
+
+<script src="/static/script.js"></script>
+
+</body>
+
+</html>
