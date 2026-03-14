@@ -1,58 +1,500 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyClimaExplorer Dashboard</title>
 
-<title>PyClimaExplorer</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/static/style.css">
+    <!-- Tailwind CSS for modern, responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://unpkg.com/globe.gl"></script>
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/globe.gl"></script>
+    <!-- html2pdf for generating the PDF report -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* Custom scrollbar for a sleeker look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        /* Ensure the globe container is styled correctly */
+        .globe-container canvas {
+            outline: none;
+            border-radius: 0.75rem;
+        }
+    </style>
 </head>
 
-<body>
+<body class="bg-slate-900 text-white flex h-screen overflow-hidden antialiased">
 
-<h1>🌍 PyClimaExplorer</h1>
+    <!-- Sidebar -->
+    <aside class="w-64 bg-slate-950 flex flex-col p-6 shadow-2xl z-10 hidden md:flex">
+        <h2 class="text-cyan-400 text-2xl font-bold mb-10 flex items-center gap-2">
+            🌍 PyClima
+        </h2>
+        <nav class="flex flex-col gap-3 flex-1">
+            <a href="#"
+                class="bg-cyan-500 text-slate-900 px-4 py-3 rounded-lg font-semibold shadow-lg shadow-cyan-500/20 transition-all duration-200 active:scale-95">Dashboard</a>
+            <a href="#"
+                class="hover:bg-slate-800 text-slate-300 hover:text-white px-4 py-3 rounded-lg transition-all duration-200 active:scale-95">Climate
+                Map</a>
+            <a href="#"
+                class="hover:bg-slate-800 text-slate-300 hover:text-white px-4 py-3 rounded-lg transition-all duration-200 active:scale-95">Reports</a>
+            <a href="#"
+                class="hover:bg-slate-800 text-slate-300 hover:text-white px-4 py-3 rounded-lg transition-all duration-200 active:scale-95">Datasets</a>
+            <a href="#"
+                class="hover:bg-slate-800 text-slate-300 hover:text-white px-4 py-3 rounded-lg transition-all duration-200 active:scale-95">Settings</a>
+        </nav>
+        <div class="mt-auto text-xs text-slate-500 text-center">
+            &copy; 2026 PyClimaExplorer
+        </div>
+    </aside>
 
-<div id="auth">
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative">
 
-<h2>Login</h2>
+        <!-- Topbar -->
+        <header
+            class="h-20 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-20 gap-4">
 
-<input id="user" placeholder="username">
-<input id="pass" type="password">
+            <div class="flex items-center gap-4 w-full flex-1">
+                <input type="text" id="location" placeholder="Search a region or city..."
+                    class="w-full max-w-sm bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-lg focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all placeholder-slate-400">
 
-<button onclick="login()">Login</button>
+                <!-- NEW: Year Slider -->
+                <div
+                    class="flex items-center gap-3 bg-slate-800/80 border border-slate-700 px-4 py-2 rounded-lg hidden lg:flex">
+                    <span class="text-xs text-slate-400 uppercase font-semibold tracking-wider">Year</span>
+                    <input type="range" id="yearSlider" min="1950" max="2026" value="2026"
+                        class="w-32 xl:w-48 accent-cyan-500 cursor-pointer hover:accent-cyan-400 transition-all"
+                        oninput="updateYearDisplay()" onchange="loadClimate()">
+                    <span id="yearDisplay" class="text-cyan-400 font-bold w-10 text-right">2026</span>
+                </div>
 
-<h3>Register</h3>
+                <button onclick="loadClimate()"
+                    class="bg-cyan-500 hover:bg-cyan-400 active:bg-cyan-600 active:scale-95 text-slate-900 px-6 py-2.5 rounded-lg font-semibold transition-all duration-200 shadow-lg shadow-cyan-500/20 whitespace-nowrap">
+                    Analyze
+                </button>
+            </div>
 
-<input id="reguser">
-<input id="regpass" type="password">
+            <button id="export-btn" onclick="downloadReport()"
+                class="hidden md:flex items-center gap-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 active:scale-95 border border-slate-700 text-white px-5 py-2.5 rounded-lg font-medium transition-all duration-200 whitespace-nowrap">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                    </path>
+                </svg>
+                Export PDF
+            </button>
+        </header>
 
-<button onclick="register()">Register</button>
+        <!-- Scrollable Dashboard Area -->
+        <div class="flex-1 overflow-y-auto p-8" id="scroll-container">
 
-</div>
+            <!-- This wrapper is what gets exported to PDF -->
+            <div id="report-content" class="max-w-7xl mx-auto bg-slate-900">
 
+                <!-- PDF Title (Hidden in browser, shown in PDF) -->
+                <div id="pdf-header" class="hidden mb-8 pb-4 border-b border-slate-800">
+                    <h1 class="text-3xl font-bold text-cyan-400">PyClimaExplorer - Comprehensive Climate Report</h1>
+                    <p class="text-slate-400 mt-2" id="pdf-date"></p>
+                    <p class="text-slate-300 mt-1 font-semibold">Location: <span id="pdf-location">Global
+                            Overview</span></p>
+                </div>
 
-<div id="dashboard" style="display:none">
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div
+                        class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-xl shadow-lg transition-transform hover:-translate-y-1 duration-300">
+                        <h3 class="text-slate-400 text-sm font-medium mb-2 uppercase tracking-wider">Avg Temp</h3>
+                        <div class="flex items-end gap-2">
+                            <span id="avgTemp" class="text-3xl font-bold text-white">--</span>
+                            <span class="text-cyan-400 font-medium mb-1">°C</span>
+                        </div>
+                    </div>
+                    <div
+                        class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-xl shadow-lg transition-transform hover:-translate-y-1 duration-300">
+                        <h3 class="text-slate-400 text-sm font-medium mb-2 uppercase tracking-wider">Max Temp</h3>
+                        <div class="flex items-end gap-2">
+                            <span id="maxTemp" class="text-3xl font-bold text-white">--</span>
+                            <span class="text-rose-400 font-medium mb-1">°C</span>
+                        </div>
+                    </div>
+                    <div
+                        class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-xl shadow-lg transition-transform hover:-translate-y-1 duration-300">
+                        <h3 class="text-slate-400 text-sm font-medium mb-2 uppercase tracking-wider">Min Temp</h3>
+                        <div class="flex items-end gap-2">
+                            <span id="minTemp" class="text-3xl font-bold text-white">--</span>
+                            <span class="text-blue-400 font-medium mb-1">°C</span>
+                        </div>
+                    </div>
+                    <div
+                        class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-xl shadow-lg transition-transform hover:-translate-y-1 duration-300">
+                        <h3 class="text-slate-400 text-sm font-medium mb-2 uppercase tracking-wider">Avg Humidity</h3>
+                        <div class="flex items-end gap-2">
+                            <span id="avgHumidity" class="text-3xl font-bold text-white">--</span>
+                            <span class="text-emerald-400 font-medium mb-1">%</span>
+                        </div>
+                    </div>
+                </div>
 
-<h2>Climate Dashboard</h2>
+                <!-- Charts and Map Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
 
-<input id="location" placeholder="Search location">
+                    <!-- Line Chart -->
+                    <div
+                        class="lg:col-span-2 bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-xl shadow-lg flex flex-col">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400"></span> <span id="chart-title">12-Month
+                                    Climate Trend</span>
+                            </h3>
+                        </div>
+                        <div class="flex-1 relative min-h-[300px]">
+                            <canvas id="chart"></canvas>
+                        </div>
+                    </div>
 
-<button onclick="loadClimate()">Analyze Climate</button>
+                    <!-- 3D Globe -->
+                    <div
+                        class="lg:col-span-1 bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-xl shadow-lg flex flex-col">
+                        <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-indigo-400"></span> Global Heat Anomalies
+                        </h3>
+                        <div id="globe"
+                            class="globe-container flex-1 min-h-[300px] rounded-lg overflow-hidden bg-slate-900 cursor-move relative flex items-center justify-center shadow-inner">
+                            <!-- Globe renders here -->
+                        </div>
+                    </div>
+                </div>
 
-<button onclick="downloadReport()">Export PDF</button>
+                <!-- Detailed Data Table (Great for PDF Exports) -->
+                <div class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-xl shadow-lg mb-8">
+                    <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Monthly Data Breakdown
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="text-slate-400 text-sm border-b border-slate-700">
+                                    <th class="pb-3 px-4 font-medium">Month</th>
+                                    <th class="pb-3 px-4 font-medium">Temperature (°C)</th>
+                                    <th class="pb-3 px-4 font-medium">Humidity (%)</th>
+                                    <th class="pb-3 px-4 font-medium">Precipitation (mm)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body" class="text-sm text-slate-300">
+                                <tr>
+                                    <td colspan="4" class="py-6 text-center text-slate-500 italic">Click "Analyze" to
+                                        generate report data.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-<div id="globe"></div>
+            </div>
+        </div>
+    </main>
 
-<canvas id="chart"></canvas>
+    <script>
+        // === GLOBAL VARIABLES ===
+        let climateChart = null;
+        let myGlobe = null;
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-</div>
+        // === INITIALIZE GLOBE ===
+        function initGlobe() {
+            const globeDiv = document.getElementById('globe');
 
-<script src="/static/script.js"></script>
+            myGlobe = Globe()(globeDiv)
+                .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-dark.jpg')
+                .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+                .backgroundColor('rgba(15, 23, 42, 0)') // Match slate-900 background
+                .showAtmosphere(true)
+                .atmosphereColor('#22d3ee')
+                .atmosphereAltitude(0.15);
 
+            // Auto-rotate the globe slowly
+            myGlobe.controls().autoRotate = true;
+            myGlobe.controls().autoRotateSpeed = 0.5;
+
+            // Adjust camera distance
+            myGlobe.camera().position.z = 250;
+
+            // Handle window resize for globe
+            window.addEventListener('resize', () => {
+                myGlobe.width(globeDiv.clientWidth);
+                myGlobe.height(globeDiv.clientHeight);
+            });
+        }
+
+        // === UPDATE SLIDER DISPLAY ===
+        function updateYearDisplay() {
+            const year = document.getElementById('yearSlider').value;
+            document.getElementById('yearDisplay').innerText = year;
+        }
+
+        // === GENERATE MOCK DATA & UPDATE UI ===
+        function loadClimate() {
+            const locationInput = document.getElementById('location').value || 'Global';
+            const year = parseInt(document.getElementById('yearSlider').value);
+
+            document.getElementById('pdf-location').innerText = `${locationInput} (Year: ${year})`;
+            document.getElementById('chart-title').innerText = `${year} Climate Trend`;
+
+            // Generate mock data
+            let tempData = [];
+            let humData = [];
+            let precData = [];
+
+            // Base temperature to simulate realism
+            // Simulate global warming effect: Older years are slightly cooler
+            const historicalCoolingOffset = (2026 - year) * 0.04;
+            let baseTemp = (Math.random() * 20 + 5) - historicalCoolingOffset;
+
+            for (let i = 0; i < 12; i++) {
+                // Creating a bell curve effect for summer months (assuming Northern Hemisphere)
+                let seasonalEffect = Math.sin((i / 11) * Math.PI) * 15;
+                tempData.push(baseTemp + seasonalEffect + (Math.random() * 4 - 2));
+                humData.push(Math.floor(Math.random() * 40 + 40)); // 40-80%
+                precData.push(Math.floor(Math.random() * 150));    // 0-150mm
+            }
+
+            // Calculate Aggregates
+            const avgTemp = (tempData.reduce((a, b) => a + b) / 12).toFixed(1);
+            const maxTemp = Math.max(...tempData).toFixed(1);
+            const minTemp = Math.min(...tempData).toFixed(1);
+            const avgHum = (humData.reduce((a, b) => a + b) / 12).toFixed(0);
+
+            // Update Cards with a quick fade animation effect
+            updateCardValue("avgTemp", avgTemp);
+            updateCardValue("maxTemp", maxTemp);
+            updateCardValue("minTemp", minTemp);
+            updateCardValue("avgHumidity", avgHum);
+
+            // Update Chart
+            updateChart(tempData, humData, year);
+
+            // Update Table
+            updateTable(tempData, humData, precData);
+
+            // Update Globe with random "heat anomaly" points to make it look active
+            updateGlobePoints();
+        }
+
+        function updateCardValue(elementId, value) {
+            const el = document.getElementById(elementId);
+            el.style.opacity = '0.3';
+            setTimeout(() => {
+                el.innerText = value;
+                el.style.opacity = '1';
+                el.style.transition = 'opacity 0.3s ease';
+            }, 150);
+        }
+
+        // === UPDATE CHART.JS ===
+        function updateChart(tempData, humData, year) {
+            const ctx = document.getElementById("chart").getContext('2d');
+
+            if (climateChart) climateChart.destroy();
+
+            // Setup gradient for temperature line
+            let gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(34, 211, 238, 0.5)'); // Cyan
+            gradient.addColorStop(1, 'rgba(34, 211, 238, 0.0)');
+
+            climateChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: months,
+                    datasets: [
+                        {
+                            label: `Temperature ${year} (°C)`,
+                            data: tempData,
+                            borderColor: "#22d3ee",
+                            backgroundColor: gradient,
+                            borderWidth: 2,
+                            pointBackgroundColor: "#0f172a",
+                            pointBorderColor: "#22d3ee",
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: `Humidity ${year} (%)`,
+                            data: humData,
+                            borderColor: "#34d399", // Emerald
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointBackgroundColor: "#0f172a",
+                            pointBorderColor: "#34d399",
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            fill: false,
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#cbd5e1', font: { family: 'Poppins' }, usePointStyle: true }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleColor: '#fff',
+                            bodyColor: '#cbd5e1',
+                            borderColor: '#334155',
+                            borderWidth: 1,
+                            padding: 12,
+                            boxPadding: 4,
+                            usePointStyle: true
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(51, 65, 85, 0.5)', drawBorder: false },
+                            ticks: { color: '#94a3b8', font: { family: 'Poppins' } }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            grid: { color: 'rgba(51, 65, 85, 0.5)', drawBorder: false },
+                            ticks: { color: '#94a3b8', font: { family: 'Poppins' } }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false }, // Prevent gridline overlap
+                            ticks: { color: '#34d399', font: { family: 'Poppins' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // === UPDATE DATA TABLE ===
+        function updateTable(tempData, humData, precData) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = ''; // Clear existing
+
+            for (let i = 0; i < 12; i++) {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-slate-700/50 hover:bg-slate-700/40 transition-colors duration-150 cursor-default";
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-medium text-white">${months[i]}</td>
+                    <td class="py-3 px-4 text-cyan-400 font-semibold">${tempData[i].toFixed(1)}</td>
+                    <td class="py-3 px-4 text-emerald-400">${humData[i]}</td>
+                    <td class="py-3 px-4 text-blue-400">${precData[i]}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        // === UPDATE GLOBE POINTS ===
+        function updateGlobePoints() {
+            // Generate random coordinates to simulate data collection points
+            const N = 50;
+            const gData = [...Array(N).keys()].map(() => ({
+                lat: (Math.random() - 0.5) * 160,
+                lng: (Math.random() - 0.5) * 360,
+                maxR: Math.random() * 20 + 5,
+                propagationSpeed: (Math.random() - 0.5) * 2 + 1,
+                repeatPeriod: Math.random() * 2000 + 1000
+            }));
+
+            myGlobe
+                .ringsData(gData)
+                .ringColor(() => t => `rgba(34,211,238,${1 - t})`) // Cyan rings
+                .ringMaxRadius('maxR')
+                .ringPropagationSpeed('propagationSpeed')
+                .ringRepeatPeriod('repeatPeriod');
+        }
+
+        // === PDF EXPORT FUNCTIONALITY ===
+        function downloadReport() {
+            const btn = document.getElementById('export-btn');
+            const originalText = btn.innerHTML;
+
+            // Set Loading state
+            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...`;
+            btn.disabled = true;
+
+            // Prepare for PDF rendering
+            const element = document.getElementById('report-content');
+            document.getElementById('pdf-header').classList.remove('hidden');
+
+            const selectedYear = document.getElementById('yearSlider').value;
+            document.getElementById('pdf-date').innerText = `Report Year: ${selectedYear} | Generated on: ${new Date().toLocaleDateString()}`;
+
+            // Note: WebGL (Globe) might render as a blank box in html2canvas depending on browser policies.
+            const opt = {
+                margin: [0.4, 0.4, 0.4, 0.4], // inches
+                filename: `Climate_Report_${selectedYear}_PyClima.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#0f172a' },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Generate and save
+            html2pdf().set(opt).from(element).save().then(() => {
+                // Restore original state
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                document.getElementById('pdf-header').classList.add('hidden');
+            }).catch(err => {
+                console.error("PDF generation failed:", err);
+                alert("Failed to generate PDF. Please try again.");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                document.getElementById('pdf-header').classList.add('hidden');
+            });
+        }
+
+        // Initialize on load
+        window.onload = () => {
+            initGlobe();
+            updateYearDisplay(); // Ensure slider UI matches the default value
+        };
+
+    </script>
 </body>
 
 </html>
